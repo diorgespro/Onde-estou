@@ -99,62 +99,103 @@
 <script>
   const localizacoesContainer = document.getElementById('localizações');
 
-document.getElementById('adicionarBtn').addEventListener('click', () => {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const latitude = pos.coords.latitude.toFixed(6);
-        const longitude = pos.coords.longitude.toFixed(6);
-        let nome = 'Localização não identificada';
-
-        // Busca reversa do endereço usando Nominatim
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`);
-          const data = await response.json();
-          
-          if (data && data.display_name) {
-            nome = data.display_name;
-          }
-        } catch (error) {
-          console.error('Erro ao buscar nome do local:', error);
-        }
-
-        // Cria a linha com os dados
-        const line = document.createElement('div');
-        line.className = 'locationLine';
-
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'info';
-        infoDiv.innerHTML = `
-          <strong>${nome}</strong><br>
-          Latitude: ${latitude}<br>
-          Longitude: ${longitude}
-        `;
-
-        const btnExcluir = document.createElement('button');
-        btnExcluir.className = 'deleteBtn';
-        btnExcluir.innerHTML = '&times;';
-        btnExcluir.title = 'Excluir';
-
-        btnExcluir.addEventListener('click', () => {
-          localizacoesContainer.removeChild(line);
-        });
-
-        line.appendChild(infoDiv);
-        line.appendChild(btnExcluir);
-        localizacoesContainer.appendChild(line);
-      },
-      (err) => {
-        alert('Erro ao obter localização. Verifique se o acesso à localização está habilitado.');
-        console.error(err);
-      }
-    );
-  } else {
-    alert('Geolocalização não suportada neste navegador.');
+  // Carregar localizações salvas ao abrir
+  function carregarLocalizacoes() {
+    const armazenados = localStorage.getItem('localizacoes');
+    if (armazenados) {
+      const locs = JSON.parse(armazenados);
+      locs.forEach(loc => {
+        adicionaLocalizacaoNaTela(loc.nome, loc.latitude, loc.longitude);
+      });
+    }
   }
-});
 
-// Função para salvar em PDF em modo paisagem, com nome em duas linhas
+  // Função auxiliar para criar linha na tela e armazenar no localStorage
+  function adicionaLocalizacaoNaTela(nome, latitude, longitude) {
+    const line = document.createElement('div');
+    line.className = 'locationLine';
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'info';
+    infoDiv.innerHTML = `
+      <strong>${nome}</strong><br>
+      Latitude: ${latitude}<br>
+      Longitude: ${longitude}
+    `;
+
+    const btnExcluir = document.createElement('button');
+    btnExcluir.className = 'deleteBtn';
+    btnExcluir.innerHTML = '&times;';
+    btnExcluir.title = 'Excluir';
+
+    btnExcluir.addEventListener('click', () => {
+      // Remove da tela
+      localizacoesContainer.removeChild(line);
+      // Remove do localStorage
+      removerDaLocalStorage({nome, latitude, longitude});
+    });
+
+    line.appendChild(infoDiv);
+    line.appendChild(btnExcluir);
+    localizacoesContainer.appendChild(line);
+  }
+
+  // Remove do localStorage
+  function removerDaLocalStorage(loc) {
+    const storaged = localStorage.getItem('localizacoes');
+    if (storaged) {
+      let locs = JSON.parse(storaged);
+      locs = locs.filter(l => !(l.nome === loc.nome && l.latitude === loc.latitude && l.longitude === loc.longitude));
+      localStorage.setItem('localizacoes', JSON.stringify(locs));
+    }
+  }
+
+  // Salva no localStorage
+  function salvarLocalizacao(nome, latitude, longitude) {
+    const storaged = localStorage.getItem('localizacoes');
+    let locs = storaged ? JSON.parse(storaged) : [];
+    locs.push({nome, latitude, longitude});
+    localStorage.setItem('localizacoes', JSON.stringify(locs));
+  }
+
+  document.getElementById('adicionarBtn').addEventListener('click', () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const latitude = pos.coords.latitude.toFixed(6);
+          const longitude = pos.coords.longitude.toFixed(6);
+          let nome = 'Localização não identificada';
+
+          try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`);
+            const data = await response.json();
+
+            if (data && data.display_name) {
+              nome = data.display_name;
+            }
+          } catch (error) {
+            console.error('Erro ao buscar nome do local:', error);
+          }
+
+          // Adiciona na tela
+          adicionaLocalizacaoNaTela(nome, latitude, longitude);
+          // Salva no armazenamento
+          salvarLocalizacao(nome, latitude, longitude);
+        },
+        (err) => {
+          alert('Erro ao obter localização. Verifique se o acesso à localização está habilitado.');
+          console.error(err);
+        }
+      );
+    } else {
+      alert('Geolocalização não suportada neste navegador.');
+    }
+  });
+
+  // Carregar ao iniciar
+  carregarLocalizacoes();
+
+  // Função para salvar em PDF em modo paisagem, com nome em duas linhas
 document.getElementById('salvarBtn').addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape' }); // modo paisagem
@@ -163,37 +204,25 @@ document.getElementById('salvarBtn').addEventListener('click', () => {
   let y = 10; // posição inicial Y no PDF
 
   linhas.forEach((line) => {
-    // Extraindo os textos
     const texto = line.querySelector('.info').innerText.trim().split('\n');
-    const nome = texto[0]; //Nome
+    const nome = texto[0];
     const latitude = texto[1].replace('Latitude:', '').trim();
     const longitude = texto[2].replace('Longitude:', '').trim();
 
-    // Cada local ocupa no máximo 4 linhas no PDF
-    // Primeira linha: Nome (em duas linhas)
-    // Segunda linha: Latitude
-    // Terceira linha: Longitude
-    // Espaço entre os locais: 4mm
-
-    if (y + 30 > 210) { // limite para página paisagem (altura de 210 mm)
+    if (y + 30 > 210) {
       doc.addPage();
       y = 10;
     }
 
-    // Escrever o nome em duas linhas
-    // Se o nome for muito longo, pode ajustar para dividir, mas aqui deixo assim
+    // Escrever o nome dividido em duas linhas se necessário
     doc.setFontSize(12);
     doc.text(`Nome:`, 10, y);
     y += 6;
-    // Quebrar o nome em duas linhas se for longo
-    // Aqui, só quebra no meio do texto, se quiser, pode fazer uma quebra automática
-    // Mas por simplicidade, deixo assim
-    const maxCharsPerLine = 50; // ajustar conforme necessidade
+    const maxCharsPerLine = 50;
     if (nome.length <= maxCharsPerLine) {
       doc.text(nome, 15, y);
       y += 6;
     } else {
-      // quebra manual
       const nomeParte1 = nome.substring(0, maxCharsPerLine);
       const nomeParte2 = nome.substring(maxCharsPerLine);
       doc.text(nomeParte1, 15, y);
@@ -202,7 +231,6 @@ document.getElementById('salvarBtn').addEventListener('click', () => {
       y += 6;
     }
 
-    // Latitude
     if (y + 6 > 210) {
       doc.addPage();
       y = 10;
@@ -210,13 +238,12 @@ document.getElementById('salvarBtn').addEventListener('click', () => {
     doc.text(`Latitude: ${latitude}`, 10, y);
     y += 6;
 
-    // Longitude
     if (y + 6 > 210) {
       doc.addPage();
       y = 10;
     }
     doc.text(`Longitude: ${longitude}`, 10, y);
-    y += 10; // espaço entre locais
+    y += 10;
   });
 
   doc.save('locais.pdf');
