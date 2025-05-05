@@ -99,51 +99,62 @@
 <script>
   const localizacoesContainer = document.getElementById('localizações');
 
-  document.getElementById('adicionarBtn').addEventListener('click', () => {
-    // Verifica se o navegador suporta Geolocation
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const latitude = pos.coords.latitude.toFixed(6);
-          const longitude = pos.coords.longitude.toFixed(6);
-          const nome = "Localização Atual";
+document.getElementById('adicionarBtn').addEventListener('click', () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const latitude = pos.coords.latitude.toFixed(6);
+        const longitude = pos.coords.longitude.toFixed(6);
+        let nome = 'Localização não identificada';
 
-          // Cria a linha com os dados
-          const line = document.createElement('div');
-          line.className = 'locationLine';
-
-          const infoDiv = document.createElement('div');
-          infoDiv.className = 'info';
-          infoDiv.innerHTML = `
-            <strong>${nome}</strong><br>
-            Latitude: ${latitude}<br>
-            Longitude: ${longitude}
-          `;
-
-          const btnExcluir = document.createElement('button');
-          btnExcluir.className = 'deleteBtn';
-          btnExcluir.innerHTML = '&times;';
-          btnExcluir.title = 'Excluir';
-
-          btnExcluir.addEventListener('click', () => {
-            localizacoesContainer.removeChild(line);
-          });
-
-          line.appendChild(infoDiv);
-          line.appendChild(btnExcluir);
-          localizacoesContainer.appendChild(line);
-        },
-        (err) => {
-          alert('Erro ao obter localização. Verifique se o acesso à localização está habilitado.');
-          console.error(err);
+        // Busca reversa do endereço usando Nominatim
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=pt`);
+          const data = await response.json();
+          
+          if (data && data.display_name) {
+            nome = data.display_name;
+          }
+        } catch (error) {
+          console.error('Erro ao buscar nome do local:', error);
         }
-      );
-    } else {
-      alert('Geolocalização não suportada neste navegador.');
-    }
-  });
 
-  // Função para salvar em PDF
+        // Cria a linha com os dados
+        const line = document.createElement('div');
+        line.className = 'locationLine';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'info';
+        infoDiv.innerHTML = `
+          <strong>${nome}</strong><br>
+          Latitude: ${latitude}<br>
+          Longitude: ${longitude}
+        `;
+
+        const btnExcluir = document.createElement('button');
+        btnExcluir.className = 'deleteBtn';
+        btnExcluir.innerHTML = '&times;';
+        btnExcluir.title = 'Excluir';
+
+        btnExcluir.addEventListener('click', () => {
+          localizacoesContainer.removeChild(line);
+        });
+
+        line.appendChild(infoDiv);
+        line.appendChild(btnExcluir);
+        localizacoesContainer.appendChild(line);
+      },
+      (err) => {
+        alert('Erro ao obter localização. Verifique se o acesso à localização está habilitado.');
+        console.error(err);
+      }
+    );
+  } else {
+    alert('Geolocalização não suportada neste navegador.');
+  }
+});
+
+// Função para salvar em PDF
 document.getElementById('salvarBtn').addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -158,8 +169,8 @@ document.getElementById('salvarBtn').addEventListener('click', () => {
     const latitude = texto[1].replace('Latitude:', '').trim();
     const longitude = texto[2].replace('Longitude:', '').trim();
 
-    // Spacing e quebra de página
-    if (y + 30 > 280) { // próxima página se passar do limite
+    // quebra de página se passar do limite
+    if (y + 30 > 280) {
       doc.addPage();
       y = 10;
     }
@@ -169,7 +180,7 @@ document.getElementById('salvarBtn').addEventListener('click', () => {
     doc.text(`Latitude: ${latitude}`, 10, y);
     y += 6;
     doc.text(`Longitude: ${longitude}`, 10, y);
-    y += 10; // espaço entre locais
+    y += 10;
   });
 
   doc.save('locais.pdf');
