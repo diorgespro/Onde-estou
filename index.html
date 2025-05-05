@@ -154,7 +154,7 @@ document.getElementById('adicionarBtn').addEventListener('click', () => {
   }
 });
 
-// Função para salvar em PDF em modo paisagem
+// Função para salvar em PDF em modo paisagem, com nome em duas linhas
 document.getElementById('salvarBtn').addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape' }); // modo paisagem
@@ -163,22 +163,60 @@ document.getElementById('salvarBtn').addEventListener('click', () => {
   let y = 10; // posição inicial Y no PDF
 
   linhas.forEach((line) => {
+    // Extraindo os textos
     const texto = line.querySelector('.info').innerText.trim().split('\n');
-    const nome = texto[0];
+    const nome = texto[0]; //Nome
     const latitude = texto[1].replace('Latitude:', '').trim();
     const longitude = texto[2].replace('Longitude:', '').trim();
+
+    // Cada local ocupa no máximo 4 linhas no PDF
+    // Primeira linha: Nome (em duas linhas)
+    // Segunda linha: Latitude
+    // Terceira linha: Longitude
+    // Espaço entre os locais: 4mm
 
     if (y + 30 > 210) { // limite para página paisagem (altura de 210 mm)
       doc.addPage();
       y = 10;
     }
+
+    // Escrever o nome em duas linhas
+    // Se o nome for muito longo, pode ajustar para dividir, mas aqui deixo assim
     doc.setFontSize(12);
-    doc.text(`Nome: ${nome}`, 10, y);
+    doc.text(`Nome:`, 10, y);
     y += 6;
+    // Quebrar o nome em duas linhas se for longo
+    // Aqui, só quebra no meio do texto, se quiser, pode fazer uma quebra automática
+    // Mas por simplicidade, deixo assim
+    const maxCharsPerLine = 50; // ajustar conforme necessidade
+    if (nome.length <= maxCharsPerLine) {
+      doc.text(nome, 15, y);
+      y += 6;
+    } else {
+      // quebra manual
+      const nomeParte1 = nome.substring(0, maxCharsPerLine);
+      const nomeParte2 = nome.substring(maxCharsPerLine);
+      doc.text(nomeParte1, 15, y);
+      y += 6;
+      doc.text(nomeParte2, 15, y);
+      y += 6;
+    }
+
+    // Latitude
+    if (y + 6 > 210) {
+      doc.addPage();
+      y = 10;
+    }
     doc.text(`Latitude: ${latitude}`, 10, y);
     y += 6;
+
+    // Longitude
+    if (y + 6 > 210) {
+      doc.addPage();
+      y = 10;
+    }
     doc.text(`Longitude: ${longitude}`, 10, y);
-    y += 10;
+    y += 10; // espaço entre locais
   });
 
   doc.save('locais.pdf');
