@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Onde Estou</title>
+<!-- Estilos agradáveis e responsivos -->
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: #f0f8ff;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  button#adicionarBtn, button#salvarBtn {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 20px;
+    border: none;
+    color: white;
+  }
+
+  button#adicionarBtn {
+    background-color: #4CAF50;
+  }
+
+  button#salvarBtn {
+    background-color: #007bff;
+  }
+
+  #localizações {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .locationLine {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0 4px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
+  }
+
+  .info {
+    flex: 1;
+  }
+
+  .deleteBtn {
+    background-color: #dc3545;
+    border: none;
+    color: white;
+    font-weight: bold;
+    font-size: 20px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Responsividade média para iPhone 11 (768px) */
+  @media (max-width: 768px) {
+    #localizações {
+      gap: 8px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>Onde Estou</h1>
+<button id="adicionarBtn">Adicionar Localização</button>
+<button id="salvarBtn">Salvar em PDF</button>
+<div id="localizações"></div>
+
+<!-- Inclusão do jsPDF via CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+  const localizacoesContainer = document.getElementById('localizações');
+
+  document.getElementById('adicionarBtn').addEventListener('click', () => {
+    // Verifica se o navegador suporta Geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const latitude = pos.coords.latitude.toFixed(6);
+          const longitude = pos.coords.longitude.toFixed(6);
+          const nome = "Localização Atual";
+
+          // Cria a linha com os dados
+          const line = document.createElement('div');
+          line.className = 'locationLine';
+
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'info';
+          infoDiv.innerHTML = `
+            <strong>${nome}</strong><br>
+            Latitude: ${latitude}<br>
+            Longitude: ${longitude}
+          `;
+
+          const btnExcluir = document.createElement('button');
+          btnExcluir.className = 'deleteBtn';
+          btnExcluir.innerHTML = '&times;';
+          btnExcluir.title = 'Excluir';
+
+          btnExcluir.addEventListener('click', () => {
+            localizacoesContainer.removeChild(line);
+          });
+
+          line.appendChild(infoDiv);
+          line.appendChild(btnExcluir);
+          localizacoesContainer.appendChild(line);
+        },
+        (err) => {
+          alert('Erro ao obter localização. Verifique se o acesso à localização está habilitado.');
+          console.error(err);
+        }
+      );
+    } else {
+      alert('Geolocalização não suportada neste navegador.');
+    }
+  });
+
+  // Função para salvar em PDF
+document.getElementById('salvarBtn').addEventListener('click', () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const linhas = document.querySelectorAll('.locationLine');
+  let y = 10; // posição inicial Y no PDF
+
+  linhas.forEach((line) => {
+    const texto = line.querySelector('.info').innerText.trim().split('\n');
+    // formato esperado: Nome, Latitude, Longitude
+    const nome = texto[0];
+    const latitude = texto[1].replace('Latitude:', '').trim();
+    const longitude = texto[2].replace('Longitude:', '').trim();
+
+    // Spacing e quebra de página
+    if (y + 30 > 280) { // próxima página se passar do limite
+      doc.addPage();
+      y = 10;
+    }
+    doc.setFontSize(12);
+    doc.text(`Nome: ${nome}`, 10, y);
+    y += 6;
+    doc.text(`Latitude: ${latitude}`, 10, y);
+    y += 6;
+    doc.text(`Longitude: ${longitude}`, 10, y);
+    y += 10; // espaço entre locais
+  });
+
+  doc.save('locais.pdf');
+});
+</script>
+
+</body>
+</html>
