@@ -154,23 +154,21 @@ document.getElementById('adicionarBtn').addEventListener('click', () => {
   }
 });
 
-// Função para salvar em PDF
+// Função para salvar em PDF em modo paisagem
 document.getElementById('salvarBtn').addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'landscape' }); // modo paisagem
 
   const linhas = document.querySelectorAll('.locationLine');
   let y = 10; // posição inicial Y no PDF
 
   linhas.forEach((line) => {
     const texto = line.querySelector('.info').innerText.trim().split('\n');
-    // formato esperado: Nome, Latitude, Longitude
     const nome = texto[0];
     const latitude = texto[1].replace('Latitude:', '').trim();
     const longitude = texto[2].replace('Longitude:', '').trim();
 
-    // quebra de página se passar do limite
-    if (y + 30 > 280) {
+    if (y + 30 > 210) { // limite para página paisagem (altura de 210 mm)
       doc.addPage();
       y = 10;
     }
